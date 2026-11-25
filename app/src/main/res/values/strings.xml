@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HandleControl</string>
+    <string name="accessibility_service_label">Hand Control Gesture Service</string>
+    <string name="accessibility_service_description">Cho phép Hand Control thực hiện thao tác vuốt (Swipe), chạm (Tap) và Quay lại (Back) thay cho người dùng khi điều khiển bằng cử chỉ tay từ xa. Không thu thập nội dung màn hình hay dữ liệu cá nhân.</string>
+</resources>
