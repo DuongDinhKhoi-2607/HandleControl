@@ -6,6 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import com.khoi.handlecontrol.core.vision.HandDetectionState
+import com.khoi.handlecontrol.core.vision.LandmarkPoint
 import kotlin.math.max
 
 /**

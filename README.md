@@ -4,7 +4,7 @@
 
 Toàn bộ AI chạy **trên thiết bị** (on-device), không cần đăng nhập, không backend, **không lưu và không gửi hình ảnh camera lên server**.
 
-> 🚧 **Trạng thái:** đang ở **Phase 0: Spike / Proof of Concept**, kiểm chứng các rủi ro kỹ thuật lớn trước khi xây app hoàn chỉnh.
+> 🚧 **Trạng thái:** đã có lõi Android chạy end-to-end (Phase 0 → 3): Camera → MediaPipe → Gesture Engine → Action Mapper → Accessibility / AudioManager, chạy nền bằng Foreground Service. **Cần test trên máy thật** trước khi sang Phase 4 (Flutter).
 
 ---
 
@@ -32,27 +32,37 @@ Theo kế hoạch, giao diện chính sẽ chuyển sang **Flutter**, còn phầ
 
 ---
 
-## Phase 0: những gì đã có
+## Những gì đã có
 
-App hiện có 2 tab để test:
+App hiện có 3 tab:
+
+### 0. Tab **Điều khiển** (mặc định)
+- Nút **TURN ON / TURN OFF** Hand Control (Foreground Service, có notification với nút **Tắt**).
+- Trạng thái Camera / AI / Accessibility, FPS, trạng thái state machine, pose đang giữ, gesture → action gần nhất.
+- Bảng Gesture Mapping. Bật xong có thể chuyển sang TikTok / YouTube và điều khiển bằng tay.
 
 ### 1. Tab **Camera + AI**
 - Xin quyền Camera (có màn hình giải thích và nút mở Cài đặt nếu bị từ chối).
 - Preview camera trước full-screen.
 - MediaPipe nhận diện bàn tay, vẽ **21 landmarks** và các đường nối xương tay đè lên preview.
 - HUD debug: có phát hiện tay không, số landmarks, **FPS**, tay trái/phải + độ tin cậy, thời gian inference (ms).
+- HUD Gesture Engine: state, pose, % giữ, tốc độ tay (palm/s), gesture gần nhất (chỉ nhận diện, không thực hiện action), dùng để tune ngưỡng.
 
 ### 2. Tab **Accessibility**
 - Hiển thị trạng thái `HandControlAccessibilityService` (ON/OFF) và nút mở Cài đặt Accessibility.
-- 6 nút test: **Swipe Up / Down / Left / Right**, **Tap**, **Back**.
+- Nút test: **Swipe Up / Down / Left / Right**, **Scroll Up / Down**, **Tap**, **Back**.
+- Volume Spike: **VOLUME +**, **VOLUME -**, **MEDIA PLAY / PAUSE** (AudioManager).
 - Tuỳ chọn **delay 3 giây** để kịp chuyển sang TikTok / YouTube Shorts / Reels trước khi thao tác được thực hiện.
 
-### Tiến độ Phase 0
-- [x] CameraX Spike: [md_file/01_Phase0_CameraX_Spike.md](md_file/01_Phase0_CameraX_Spike.md)
-- [x] MediaPipe Hand Landmarks: [md_file/02_Phase0_MediaPipe_HandLandmarks.md](md_file/02_Phase0_MediaPipe_HandLandmarks.md)
-- [x] AccessibilityService Spike: [md_file/03_Phase0_AccessibilityService_Spike.md](md_file/03_Phase0_AccessibilityService_Spike.md)
-- [ ] Volume Spike (`AudioManager`)
-- [ ] Foreground Service Spike (camera + AI chạy khi đang ở app khác)
+### Tiến độ
+- [x] Phase 0, CameraX Spike: [md_file/01_Phase0_CameraX_Spike.md](md_file/01_Phase0_CameraX_Spike.md)
+- [x] Phase 0, MediaPipe Hand Landmarks: [md_file/02_Phase0_MediaPipe_HandLandmarks.md](md_file/02_Phase0_MediaPipe_HandLandmarks.md)
+- [x] Phase 0, AccessibilityService Spike: [md_file/03_Phase0_AccessibilityService_Spike.md](md_file/03_Phase0_AccessibilityService_Spike.md)
+- [x] Phase 0, Volume + Foreground Service: [md_file/04_Phase0_Volume_ForegroundService_Spike.md](md_file/04_Phase0_Volume_ForegroundService_Spike.md)
+- [x] Phase 1, Gesture Engine: [md_file/05_Phase1_Gesture_Engine.md](md_file/05_Phase1_Gesture_Engine.md)
+- [x] Phase 2 + 3, Action Mapper + Android Control: [md_file/06_Phase2_3_ActionMapper_AndroidControl.md](md_file/06_Phase2_3_ActionMapper_AndroidControl.md)
+- [ ] Test trên máy thật (khoảng cách, ánh sáng, TikTok / YouTube / Reels)
+- [ ] Phase 4, Flutter
 
 ---
 
@@ -64,12 +74,17 @@ app/src/main/
 ├── assets/
 │   └── hand_landmarker.task           # Model MediaPipe Hand Landmarker
 ├── java/com/khoi/handlecontrol/
-│   ├── MainActivity.kt                # 2 tab: Camera + AI / Accessibility
+│   ├── MainActivity.kt                # 3 tab: Điều khiển / Camera + AI / Accessibility
+│   ├── core/
+│   │   ├── vision/HandLandmarkerHelper.kt      # Bọc MediaPipe HandLandmarker
+│   │   ├── gesture/                   # Gesture Engine: classifier + state machine (Kotlin thuần)
+│   │   └── action/                    # ActionMapper, ActionExecutor, VolumeController
 │   ├── service/
-│   │   └── HandControlAccessibilityService.kt   # Swipe / Tap / Back
+│   │   ├── HandControlForegroundService.kt     # Camera + AI + gesture chạy nền
+│   │   └── HandControlAccessibilityService.kt  # Swipe / Scroll / Tap / Back
+│   ├── ui/control/ControlScreen.kt    # Tab Điều khiển
 │   ├── spike/
-│   │   ├── CameraPreviewScreen.kt     # CameraX + quyền camera + HUD
-│   │   ├── HandLandmarkerHelper.kt    # Bọc MediaPipe HandLandmarker
+│   │   ├── CameraPreviewScreen.kt     # CameraX + quyền camera + HUD debug
 │   │   ├── HandLandmarkOverlay.kt     # Vẽ 21 landmarks
 │   │   └── AccessibilitySpikeScreen.kt
 │   └── ui/theme/
@@ -91,6 +106,7 @@ git clone https://github.com/DuongDinhKhoi-2607/HandleControl.git
 cd HandleControl
 ./gradlew assembleDebug        # Windows: gradlew.bat assembleDebug
 ./gradlew installDebug         # cài lên điện thoại đang cắm USB
+./gradlew testDebugUnitTest     # unit test Gesture Engine + Action Mapper
 ```
 
 Hoặc mở thư mục bằng Android Studio rồi bấm **Run**.
@@ -114,10 +130,10 @@ Hoặc mở thư mục bằng Android Studio rồi bấm **Run**.
 
 Chi tiết trong [md_file/Plan.md](md_file/Plan.md):
 
-1. **Phase 0**: Spike / Proof of Concept *(đang làm)*
-2. **Phase 1**: Gesture Engine (state machine, phát hiện swipe, ngưỡng confidence)
-3. **Phase 2**: Action Mapper
-4. **Phase 3**: Android Control (Accessibility + AudioManager)
+1. **Phase 0**: Spike / Proof of Concept *(code xong, chờ test máy thật)*
+2. **Phase 1**: Gesture Engine (state machine, phát hiện swipe, ngưỡng confidence) *(xong)*
+3. **Phase 2**: Action Mapper *(xong)*
+4. **Phase 3**: Android Control (Accessibility + AudioManager) *(xong)*
 5. **Phase 4**: Tích hợp Flutter qua MethodChannel
 6. **Phase 5**: Foreground Service hoàn chỉnh
 7. **Phase 6–8**: UI Flutter, lưu cấu hình, kiểm thử trên nhiều hãng máy

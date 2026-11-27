@@ -10,8 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Phase 0 — Feature 3: AccessibilityService Spike.
- * Dispatches system-wide swipe, tap, and back actions via Android Accessibility APIs.
+ * Dispatches system-wide swipe, scroll, tap, and back actions via Android Accessibility APIs.
  */
 class HandControlAccessibilityService : AccessibilityService() {
 
@@ -77,6 +76,24 @@ class HandControlAccessibilityService : AccessibilityService() {
         dispatchSwipe("SWIPE_RIGHT", startX, y, endX, y, onResult)
     }
 
+    /** Short, slow drag upward: content scrolls down (reveals what is below). */
+    fun performScrollDown(onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val metrics = resources.displayMetrics
+        val x = metrics.widthPixels * 0.5f
+        val startY = metrics.heightPixels * 0.65f
+        val endY = metrics.heightPixels * 0.35f
+        dispatchSwipe("SCROLL_DOWN", x, startY, x, endY, onResult, SCROLL_DURATION_MS)
+    }
+
+    /** Short, slow drag downward: content scrolls up. */
+    fun performScrollUp(onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val metrics = resources.displayMetrics
+        val x = metrics.widthPixels * 0.5f
+        val startY = metrics.heightPixels * 0.35f
+        val endY = metrics.heightPixels * 0.65f
+        dispatchSwipe("SCROLL_UP", x, startY, x, endY, onResult, SCROLL_DURATION_MS)
+    }
+
     fun performTap(onResult: (Boolean, String) -> Unit = { _, _ -> }) {
         val metrics = resources.displayMetrics
         val x = metrics.widthPixels * 0.5f
@@ -102,13 +119,14 @@ class HandControlAccessibilityService : AccessibilityService() {
         startY: Float,
         endX: Float,
         endY: Float,
-        onResult: (Boolean, String) -> Unit
+        onResult: (Boolean, String) -> Unit,
+        durationMs: Long = SWIPE_DURATION_MS
     ) {
         val path = Path().apply {
             moveTo(startX, startY)
             lineTo(endX, endY)
         }
-        val stroke = GestureDescription.StrokeDescription(path, 0L, SWIPE_DURATION_MS)
+        val stroke = GestureDescription.StrokeDescription(path, 0L, durationMs)
         dispatchGestureInternal(label, stroke, onResult)
     }
 
@@ -147,6 +165,7 @@ class HandControlAccessibilityService : AccessibilityService() {
     companion object {
         private const val SWIPE_DURATION_MS = 280L
         private const val TAP_DURATION_MS = 80L
+        private const val SCROLL_DURATION_MS = 450L
 
         @Volatile
         var instance: HandControlAccessibilityService? = null

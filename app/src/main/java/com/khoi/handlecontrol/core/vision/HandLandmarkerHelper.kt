@@ -1,4 +1,4 @@
-package com.khoi.handlecontrol.spike
+package com.khoi.handlecontrol.core.vision
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -28,11 +28,13 @@ data class HandDetectionState(
     val landmarks: List<LandmarkPoint> = emptyList(),
     val imageWidth: Int = 1,
     val imageHeight: Int = 1,
+    /** Frame timestamp (SystemClock.uptimeMillis) the result belongs to. */
+    val timestampMs: Long = 0L,
     val errorMessage: String? = null
 )
 
 /**
- * Wraps MediaPipe HandLandmarker in LIVE_STREAM mode for Phase 0 spike verification.
+ * Wraps MediaPipe HandLandmarker in LIVE_STREAM mode (used by the Camera tab and the foreground service).
  * Front camera only: every frame is rotated upright and mirrored to match the selfie PreviewView.
  *
  * Threading: [detectLiveStream] runs on the CameraX analysis thread, [close] on the main thread.
@@ -234,7 +236,8 @@ class HandLandmarkerHelper(
                 confidence = firstHandedness?.score() ?: 0f,
                 landmarks = points,
                 imageWidth = lastImageWidth,
-                imageHeight = lastImageHeight
+                imageHeight = lastImageHeight,
+                timestampMs = result.timestampMs()
             )
         )
     }

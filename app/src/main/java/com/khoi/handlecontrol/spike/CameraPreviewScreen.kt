@@ -44,10 +44,17 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.khoi.handlecontrol.core.gesture.GestureEngine
+import com.khoi.handlecontrol.core.gesture.GestureEngineSnapshot
+import com.khoi.handlecontrol.core.gesture.HandFrame
+import com.khoi.handlecontrol.core.vision.HandDetectionState
+import com.khoi.handlecontrol.core.vision.HandLandmarkerHelper
+import com.khoi.handlecontrol.service.HandControlForegroundService
+import androidx.compose.runtime.collectAsState
 import java.util.concurrent.Executors
 
 /**
- * Phase 0 — CameraX + MediaPipe Hand Landmarks Spike.
+ * Phase 0 / 1 — CameraX + MediaPipe Hand Landmarks + Gesture Engine debug.
  * Verifies camera permission, front camera preview (front camera only), 21 hand landmarks, and FPS on-device.
  */
 @Composable
@@ -60,6 +67,11 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
     }
     var statusText by remember { mutableStateOf("Initializing camera...") }
     var handState by remember { mutableStateOf(HandDetectionState()) }
+    // Phase 1: run the gesture engine here too (no actions executed) to tune thresholds visually.
+    val gestureEngine = remember { GestureEngine() }
+    var engineSnapshot by remember { mutableStateOf(GestureEngineSnapshot()) }
+    var lastGestureText by remember { mutableStateOf("-") }
+    val serviceStatus by HandControlForegroundService.status.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -87,6 +99,15 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    if (serviceStatus.running) {
+        // ProcessCameraProvider is process-wide: binding here would steal the camera from the service.
+        ServiceRunningContent(
+            modifier = modifier,
+            onStop = { HandControlForegroundService.stop(context) }
+        )
+        return
+    }
+
     if (!hasCameraPermission) {
         PermissionRequestContent(
             modifier = modifier,
@@ -99,7 +120,21 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize()) {
         CameraXPreviewWithMediaPipe(
             onStatusChanged = { statusText = it },
-            onHandResult = { handState = it },
+            onHandResult = { result ->
+                handState = result
+                if (result.errorMessage == null) {
+                    val snapshot = gestureEngine.process(
+                        HandFrame(
+                            timestampMs = result.timestampMs,
+                            landmarks = result.landmarks,
+                            confidence = result.confidence,
+                            aspect = result.imageWidth.toFloat() / result.imageHeight.coerceAtLeast(1)
+                        )
+                    )
+                    engineSnapshot = snapshot
+                    snapshot.event?.let { lastGestureText = it.gesture.label }
+                }
+            },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -137,6 +172,16 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
             Text(
                 text = "FPS: ${handState.fps} | Hand: ${handState.handedness} (${"%.2f".format(handState.confidence)}) | ${handState.inferenceTimeMs} ms",
                 color = Color.White,
+                fontSize = 12.sp
+            )
+            Text(
+                text = "Engine: ${engineSnapshot.state} | Pose: ${(engineSnapshot.pose ?: engineSnapshot.candidate)?.label ?: "-"} | Hold: ${(engineSnapshot.holdProgress * 100).toInt()}%",
+                color = Color(0xFFFFE082),
+                fontSize = 12.sp
+            )
+            Text(
+                text = "Speed: ${"%.1f".format(engineSnapshot.speed)} palm/s | Last gesture: $lastGestureText",
+                color = Color(0xFFFFE082),
                 fontSize = 12.sp
             )
             handState.errorMessage?.let { error ->
@@ -281,4 +326,29 @@ private fun openAppSettings(context: Context) {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     context.startActivity(intent)
+}
+
+@Composable
+private fun ServiceRunningContent(
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = "Hand Control đang chạy nền", fontSize = 20.sp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Camera đang được Foreground Service sử dụng. Tắt Hand Control để xem preview debug ở đây.",
+            fontSize = 14.sp
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(onClick = onStop) {
+            Text("Tắt Hand Control")
+        }
+    }
 }

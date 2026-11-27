@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.khoi.handlecontrol.spike.AccessibilitySpikeScreen
 import com.khoi.handlecontrol.spike.CameraPreviewScreen
+import com.khoi.handlecontrol.ui.control.ControlScreen
 import com.khoi.handlecontrol.ui.theme.HandleControlTheme
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HandleControlTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
-                val tabs = listOf("Camera + AI", "Accessibility")
+                val tabs = listOf("Điều khiển", "Camera + AI", "Accessibility")
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(
@@ -46,8 +47,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         when (selectedTab) {
-                            0 -> CameraPreviewScreen(modifier = Modifier.fillMaxSize())
-                            1 -> AccessibilitySpikeScreen(modifier = Modifier.fillMaxSize())
+                            0 -> ControlScreen(modifier = Modifier.fillMaxSize())
+                            1 -> CameraPreviewScreen(modifier = Modifier.fillMaxSize())
+                            2 -> AccessibilitySpikeScreen(modifier = Modifier.fillMaxSize())
                         }
                     }
                 }

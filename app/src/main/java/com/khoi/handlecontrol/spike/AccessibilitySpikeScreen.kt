@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.khoi.handlecontrol.core.action.VolumeController
 import com.khoi.handlecontrol.service.HandControlAccessibilityService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -40,7 +41,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Phase 0 — Feature 3: AccessibilityService Spike UI.
- * Provides test buttons for Swipe Up/Down/Left/Right, Tap, and Back.
+ * Provides test buttons for Swipe Up/Down/Left/Right, Scroll, Tap, Back, plus the Volume Spike.
  */
 @Composable
 fun AccessibilitySpikeScreen(modifier: Modifier = Modifier) {
@@ -51,6 +52,7 @@ fun AccessibilitySpikeScreen(modifier: Modifier = Modifier) {
     var delay3Seconds by remember { mutableStateOf(true) }
     var statusLog by remember { mutableStateOf("Chưa thực hiện thao tác nào") }
     var pendingJob by remember { mutableStateOf<Job?>(null) }
+    val volumeController = remember { VolumeController(context) }
 
     fun triggerAction(actionName: String, action: (HandControlAccessibilityService) -> Unit) {
         val service = HandControlAccessibilityService.instance
@@ -203,6 +205,64 @@ fun AccessibilitySpikeScreen(modifier: Modifier = Modifier) {
             ) {
                 Text("TEST BACK")
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { triggerAction("SCROLL UP") { it.performScrollUp(onGestureResult) } },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("TEST SCROLL UP")
+            }
+            Button(
+                onClick = { triggerAction("SCROLL DOWN") { it.performScrollDown(onGestureResult) } },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("TEST SCROLL DOWN")
+            }
+        }
+
+        // Plan.md section 7: Volume Spike. AudioManager, no Accessibility needed.
+        Text(
+            text = "Volume Spike (AudioManager)",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { statusLog = volumeController.volumeUp().message },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("VOLUME +")
+            }
+            Button(
+                onClick = { statusLog = volumeController.volumeDown().message },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("VOLUME -")
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                pendingJob?.cancel()
+                pendingJob = scope.launch {
+                    if (delay3Seconds) {
+                        for (sec in 3 downTo 1) {
+                            statusLog = "Gửi phím MEDIA PLAY/PAUSE sau ${sec}s..."
+                            delay(1000L)
+                        }
+                    }
+                    statusLog = volumeController.mediaPlayPause().message
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("TEST MEDIA PLAY / PAUSE")
         }
 
         // Result status box
