@@ -40,6 +40,7 @@ class ActionExecutor(context: Context) {
                     ControlAction.SWIPE_LEFT -> service.performSwipeLeft(callback)
                     ControlAction.SWIPE_RIGHT -> service.performSwipeRight(callback)
                     ControlAction.PLAY_PAUSE, ControlAction.CLICK -> service.performTap(callback)
+                    ControlAction.DOUBLE_TAP -> service.performDoubleTap(callback)
                     ControlAction.BACK -> service.performBackAction(callback)
                     ControlAction.SCROLL_UP -> service.performScrollUp(callback)
                     ControlAction.SCROLL_DOWN -> service.performScrollDown(callback)

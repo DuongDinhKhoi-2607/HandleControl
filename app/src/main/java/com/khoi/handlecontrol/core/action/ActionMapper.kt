@@ -19,6 +19,7 @@ enum class ControlAction(val label: String) {
     SWIPE_LEFT("Vuốt sang trái"),
     SWIPE_RIGHT("Vuốt sang phải"),
     CLICK("Chạm giữa màn hình"),
+    DOUBLE_TAP("Chạm 2 lần giữa màn hình"),
     BACK("Quay lại"),
     SCROLL_UP("Cuộn lên"),
     SCROLL_DOWN("Cuộn xuống");
@@ -41,9 +42,15 @@ class ActionMapper(mapping: Map<Gesture, ControlAction> = DEFAULT_MAPPING) {
 
     companion object {
         val DEFAULT_MAPPING: Map<Gesture, ControlAction> = mapOf(
-            Gesture.SWIPE_RIGHT to ControlAction.NEXT,
-            Gesture.SWIPE_LEFT to ControlAction.PREVIOUS,
-            Gesture.OPEN_PALM to ControlAction.PLAY_PAUSE,
+            // Vertical feeds (TikTok, Shorts, Reels): hand up = drag up = next video.
+            Gesture.SWIPE_UP to ControlAction.NEXT,
+            Gesture.SWIPE_DOWN to ControlAction.PREVIOUS,
+            // Horizontal swipes drag the screen in the same direction as the hand.
+            Gesture.SWIPE_LEFT to ControlAction.SWIPE_LEFT,
+            Gesture.SWIPE_RIGHT to ControlAction.SWIPE_RIGHT,
+            Gesture.THUMB_UP to ControlAction.DOUBLE_TAP,
+            Gesture.THUMB_LEFT to ControlAction.BACK,
+            Gesture.FIST to ControlAction.PLAY_PAUSE,
             Gesture.POINT_UP to ControlAction.VOLUME_UP,
             Gesture.POINT_DOWN to ControlAction.VOLUME_DOWN
         )

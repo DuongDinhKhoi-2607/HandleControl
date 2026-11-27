@@ -16,14 +16,28 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.khoi.handlecontrol.core.app.ControlSettings
+import com.khoi.handlecontrol.core.app.OwnAppVisibility
 import com.khoi.handlecontrol.spike.AccessibilitySpikeScreen
 import com.khoi.handlecontrol.spike.CameraPreviewScreen
 import com.khoi.handlecontrol.ui.control.ControlScreen
 import com.khoi.handlecontrol.ui.theme.HandleControlTheme
 
 class MainActivity : ComponentActivity() {
+    // Hand Control's own screen in front = test mode: gestures are recognised but not executed.
+    override fun onResume() {
+        super.onResume()
+        OwnAppVisibility.set(true)
+    }
+
+    override fun onPause() {
+        OwnAppVisibility.set(false)
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ControlSettings.init(this)
         enableEdgeToEdge()
         setContent {
             HandleControlTheme {

@@ -9,11 +9,18 @@
 
 Ánh xạ `Gesture → ControlAction`, bất biến, đổi mapping bằng `with(gesture, action)` (chuẩn bị cho màn Gesture Mapping ở Phase 4/7).
 
+> **Đã đổi mapping ngày 2026-11-28**, xem `08_Thiet_Ke_Lai_Cu_Chi.md`.
+
 | Gesture | Action mặc định |
 |---|---|
-| Swipe Right | `NEXT` |
-| Swipe Left | `PREVIOUS` |
-| Open Palm | `PLAY_PAUSE` |
+| Swipe Up | `NEXT` |
+| Swipe Down | `PREVIOUS` |
+| Swipe Left | `SWIPE_LEFT` (kéo màn hình sang trái) |
+| Swipe Right | `SWIPE_RIGHT` (kéo màn hình sang phải) |
+| Thumb Up (Like) | `DOUBLE_TAP` |
+| Thumb Left | `BACK` |
+| Fist (nắm tay) | `PLAY_PAUSE` |
+| Open Palm (xòe tay) | không làm gì, chỉ dùng để vuốt |
 | Point Up | `VOLUME_UP` |
 | Point Down | `VOLUME_DOWN` |
 
@@ -75,7 +82,7 @@ UI này sẽ được thay bằng Flutter ở Phase 4; Flutter chỉ cần gọi
 
 - [ ] Bật Hand Control → Camera + AI ON
 - [ ] Swipe Right → Next, Swipe Left → Previous
-- [ ] Open Palm → Play/Pause
+- [ ] Fist (nắm tay) → Play/Pause; Open Palm không làm gì
 - [ ] Point Up → Volume +, Point Down → Volume -
 - [ ] Chuyển sang TikTok: gesture vẫn hoạt động
 - [ ] Chuyển sang YouTube: gesture vẫn hoạt động

@@ -83,9 +83,10 @@ class HandLandmarkerHelper(
                 .setBaseOptions(baseOptions)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumHands(1)
-                .setMinHandDetectionConfidence(0.5f)
-                .setMinHandPresenceConfidence(0.5f)
-                .setMinTrackingConfidence(0.5f)
+                // Higher than the 0.5 defaults: fewer "hands" guessed on a forearm or a half-visible hand.
+                .setMinHandDetectionConfidence(0.7f)
+                .setMinHandPresenceConfidence(0.7f)
+                .setMinTrackingConfidence(0.6f)
                 .setResultListener { result, _ ->
                     if (!closed) handleResult(result)
                 }

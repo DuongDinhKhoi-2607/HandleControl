@@ -10,7 +10,8 @@ import kotlin.math.sin
  */
 object SyntheticHand {
 
-    enum class Pose { OPEN_PALM, POINT, FIST }
+    /** THUMB_UP = "like": four fingers curled, thumb sticking up out of the fist. */
+    enum class Pose { OPEN_PALM, POINT, FIST, THUMB_UP }
 
     /**
      * @param s hand scale (wrist → fingertip is roughly 1.2 * s)
@@ -26,17 +27,25 @@ object SyntheticHand {
         val pts = MutableList(21) { 0f to 0f }
         pts[0] = 0f to 0.5f // wrist
 
-        // Thumb (always tucked; the classifier ignores it).
         pts[1] = -0.3f to 0.35f
-        pts[2] = -0.4f to 0.2f
-        pts[3] = -0.35f to 0.1f
-        pts[4] = -0.25f to 0.05f
+        if (pose == Pose.THUMB_UP) {
+            // Thumb sticking up, away from the fist.
+            pts[2] = -0.4f to 0.2f
+            pts[3] = -0.45f to -0.15f
+            pts[4] = -0.5f to -0.45f
+        } else {
+            // Thumb tucked against the index finger.
+            pts[2] = -0.4f to 0.2f
+            pts[3] = -0.35f to 0.1f
+            pts[4] = -0.25f to 0.05f
+        }
 
         val baseX = floatArrayOf(-0.3f, -0.1f, 0.1f, 0.3f)
         val extended = when (pose) {
             Pose.OPEN_PALM -> booleanArrayOf(true, true, true, true)
             Pose.POINT -> booleanArrayOf(true, false, false, false)
             Pose.FIST -> booleanArrayOf(false, false, false, false)
+            Pose.THUMB_UP -> booleanArrayOf(false, false, false, false)
         }
         for (f in 0 until 4) {
             val mcp = 5 + f * 4

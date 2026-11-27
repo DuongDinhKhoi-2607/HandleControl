@@ -45,6 +45,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.khoi.handlecontrol.core.action.ActionMapper
+import com.khoi.handlecontrol.core.app.AppGate
 import com.khoi.handlecontrol.service.HandControlAccessibilityService
 import com.khoi.handlecontrol.service.HandControlForegroundService
 
@@ -128,6 +129,10 @@ fun ControlScreen(modifier: Modifier = Modifier) {
 
         (message ?: status.error)?.let { Text(it, color = Color(0xFFC62828), fontSize = 13.sp) }
 
+        if (status.running && status.gate == AppGate.Decision.TEST) {
+            TestModeCard(status.pose?.label, status.holdProgress, status.testLog)
+        }
+
         StatusCard {
             StatusRow("Camera", status.cameraActive)
             StatusRow("AI (MediaPipe)", status.aiActive)
@@ -141,6 +146,8 @@ fun ControlScreen(modifier: Modifier = Modifier) {
                 OutlinedButton(onClick = { openAccessibilitySettings(context) }) { Text("Mở Cài đặt Accessibility") }
             }
         }
+
+        StatusCard { AppFilterSection() }
 
         if (status.running) {
             StatusCard {
@@ -170,7 +177,7 @@ fun ControlScreen(modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "Giữ yên tư thế ~0.5 giây để kích hoạt Open Palm / Point Up / Point Down. Vuốt tay nhanh ngang khung hình để Swipe.",
+                "Xòe bàn tay rồi vuốt dứt khoát, đủ dài lên / xuống / trái / phải để Swipe (nắm tay di chuyển sẽ không tính). Để cả bàn tay nằm trong khung hình. Nắm 4 ngón, giơ ngón cái lên (Like) để chạm 2 lần, chỉ thẳng ngón cái sang trái giữ ~1 giây để Quay lại (Back). Nắm tay giữ ~0.8 giây để Play / Pause. Giữ yên ~0.5 giây để kích hoạt Point Up / Point Down / Like. Xòe tay không làm gì (chỉ dùng để vuốt). Mỗi hành động cách nhau ít nhất 1 giây.",
                 fontSize = 12.sp,
                 color = Color.DarkGray
             )
@@ -181,6 +188,40 @@ fun ControlScreen(modifier: Modifier = Modifier) {
             fontSize = 12.sp,
             color = Color.Gray
         )
+    }
+}
+
+/** Shown while Hand Control itself is on screen: try gestures safely, nothing is executed. */
+@Composable
+private fun TestModeCard(pose: String?, holdProgress: Float, log: List<String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFE3F2FD), RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text("CHẾ ĐỘ TEST", fontWeight = FontWeight.Bold, color = Color(0xFF0D47A1))
+        Text(
+            "Đang ở trong Hand Control: cử chỉ được nhận diện và hiện ở đây nhưng KHÔNG thực hiện " +
+                "(không vuốt, không Back, không đổi âm lượng). Mở app đã chọn để điều khiển thật.",
+            fontSize = 12.sp,
+            color = Color(0xFF0D47A1)
+        )
+        Text("Đang thấy: ${pose ?: "-"}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        LinearProgressIndicator(progress = { holdProgress }, modifier = Modifier.fillMaxWidth())
+        if (log.isEmpty()) {
+            Text("Chưa nhận cử chỉ nào. Thử nắm tay, Like, vuốt...", fontSize = 12.sp, color = Color.DarkGray)
+        } else {
+            Text("Đã nhận (mới nhất trước):", fontSize = 12.sp, color = Color.DarkGray)
+            log.forEachIndexed { i, line ->
+                Text(
+                    "${i + 1}. $line",
+                    fontSize = 14.sp,
+                    fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal
+                )
+            }
+        }
     }
 }
 

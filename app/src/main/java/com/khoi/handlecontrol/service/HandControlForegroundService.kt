@@ -21,6 +21,10 @@ import androidx.lifecycle.LifecycleService
 import com.khoi.handlecontrol.MainActivity
 import com.khoi.handlecontrol.R
 import com.khoi.handlecontrol.core.action.ActionExecutor
+import com.khoi.handlecontrol.core.app.AppGate
+import com.khoi.handlecontrol.core.app.AppGate.recognises
+import com.khoi.handlecontrol.core.app.ControlSettings
+import com.khoi.handlecontrol.core.app.OwnAppVisibility
 import com.khoi.handlecontrol.core.action.ActionMapper
 import com.khoi.handlecontrol.core.action.ControlAction
 import com.khoi.handlecontrol.core.gesture.EngineState
@@ -50,7 +54,11 @@ data class ControlStatus(
     val lastAction: ControlAction? = null,
     val lastResult: String? = null,
     val gestureCount: Int = 0,
-    val error: String? = null
+    val error: String? = null,
+    /** ACTIVE, TEST (inside Hand Control), or why control is paused. */
+    val gate: AppGate.Decision = AppGate.Decision.ACTIVE,
+    /** Gestures recognised in test mode, newest first (not executed). */
+    val testLog: List<String> = emptyList()
 )
 
 /**
@@ -75,9 +83,37 @@ class HandControlForegroundService : LifecycleService() {
     @Volatile
     private var stopping = false
 
+    /** Last gate decision seen on the analysis thread, to react only when it changes. */
+    @Volatile
+    private var lastDecision: AppGate.Decision? = null
+    /** Set when control pauses; the engine is reset on the result thread before the next frame. */
+    @Volatile
+    private var engineResetPending = false
+
     override fun onCreate() {
         super.onCreate()
+        ControlSettings.init(this)
         createNotificationChannel()
+    }
+
+    private fun currentDecision(): AppGate.Decision = AppGate.decide(
+        filterEnabled = ControlSettings.filterEnabled.value,
+        foregroundPackage = HandControlAccessibilityService.foregroundPackage.value,
+        allowedPackages = ControlSettings.allowedApps.value,
+        ownAppVisible = OwnAppVisibility.visible.value
+    )
+
+    /** Called for every camera frame (analysis thread). */
+    private fun onGate(decision: AppGate.Decision) {
+        if (decision == lastDecision) return
+        lastDecision = decision
+        // Any switch (test ↔ app ↔ paused) starts clean: a half-held pose or half-done swipe
+        // must not finish in the other place (e.g. a test fist becoming Pause in TikTok).
+        engineResetPending = true
+        _status.update {
+            it.copy(gate = decision, handDetected = false, engineState = EngineState.IDLE, pose = null, holdProgress = 0f)
+        }
+        refreshNotification()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -116,6 +152,8 @@ class HandControlForegroundService : LifecycleService() {
         }
 
         stopping = false
+        lastDecision = null
+        engineResetPending = false
         engine.reset()
         executor = ActionExecutor(this)
         _status.value = ControlStatus(running = true)
@@ -143,7 +181,12 @@ class HandControlForegroundService : LifecycleService() {
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build()
-                analysis.setAnalyzer(singleThread) { proxy -> helper.detectLiveStream(proxy) }
+                analysis.setAnalyzer(singleThread) { proxy ->
+                    val decision = currentDecision()
+                    onGate(decision)
+                    // Outside the selected apps the frame is dropped before MediaPipe: no AI work, less battery.
+                    if (decision.recognises) helper.detectLiveStream(proxy) else proxy.close()
+                }
                 imageAnalysis = analysis
                 // Analysis only, no Preview: nothing is drawn, frames stay in memory.
                 provider.bindToLifecycle(this, selector, analysis)
@@ -162,6 +205,12 @@ class HandControlForegroundService : LifecycleService() {
         if (result.errorMessage != null) {
             _status.update { it.copy(aiActive = false, error = result.errorMessage) }
             return
+        }
+        // A frame already in MediaPipe when the user left the selected app.
+        if (!currentDecision().recognises) return
+        if (engineResetPending) {
+            engineResetPending = false
+            engine.reset()
         }
 
         val snapshot = engine.process(
@@ -186,7 +235,24 @@ class HandControlForegroundService : LifecycleService() {
         }
 
         val event = snapshot.event ?: return
+        val decision = currentDecision()
+        if (!decision.recognises) return
         val action = mapper.map(event.gesture)
+        if (decision == AppGate.Decision.TEST) {
+            // Test mode: show what was recognised, do not execute it.
+            val line = "${event.gesture.label} → ${action.label}"
+            _status.update {
+                it.copy(
+                    lastGesture = event.gesture,
+                    lastAction = action,
+                    lastResult = "Chế độ test: đã nhận, không thực hiện",
+                    gestureCount = it.gestureCount + 1,
+                    testLog = (listOf(line) + it.testLog).take(TEST_LOG_SIZE)
+                )
+            }
+            refreshNotification()
+            return
+        }
         _status.update {
             it.copy(lastGesture = event.gesture, lastAction = action, lastResult = "…", gestureCount = it.gestureCount + 1)
         }
@@ -270,6 +336,12 @@ class HandControlForegroundService : LifecycleService() {
 
     private fun notificationText(status: ControlStatus): String {
         status.error?.let { return "Lỗi: $it" }
+        when (status.gate) {
+            AppGate.Decision.TEST -> return "Chế độ test trong Hand Control: nhận cử chỉ nhưng không thực hiện."
+            AppGate.Decision.NOT_SELECTED_APP -> return "Tạm dừng: chỉ hoạt động trong app đã chọn."
+            AppGate.Decision.UNKNOWN_APP -> return "Tạm dừng: bật Accessibility để biết app đang mở."
+            AppGate.Decision.ACTIVE -> Unit
+        }
         val gesture = status.lastGesture ?: return "Camera + AI đang chạy. Đưa tay vào khung hình để điều khiển."
         val action = status.lastAction?.label ?: "-"
         return "Gần nhất: ${gesture.label} → $action"
@@ -291,6 +363,7 @@ class HandControlForegroundService : LifecycleService() {
         private const val TAG = "HandControlFgs"
         private const val CHANNEL_ID = "hand_control"
         private const val NOTIFICATION_ID = 1001
+        private const val TEST_LOG_SIZE = 8
         private const val ACTION_STOP = "com.khoi.handlecontrol.action.STOP"
 
         private val _status = MutableStateFlow(ControlStatus())
