@@ -25,7 +25,7 @@ enum class EngineState {
  */
 data class GestureConfig(
     /** Frames whose handedness score is below this are ignored (Plan.md section 13). */
-    val minConfidence: Float = 0.80f,
+    val minConfidence: Float = 0.60f,
     /** A hand missing for less than this is treated as a detection glitch, not a release. */
     val lostToleranceMs: Long = 300L,
 
@@ -41,12 +41,12 @@ data class GestureConfig(
     val staticReleaseMs: Long = 300L,
 
     // Swipes
-    val swipeMinDistance: Float = 1.5f,
-    val swipeMinVelocity: Float = 2.5f,
-    val swipeMaxDurationMs: Long = 600L,
+    val swipeMinDistance: Float = 1.2f,
+    val swipeMinVelocity: Float = 2.0f,
+    val swipeMaxDurationMs: Long = 800L,
     val swipeMinDurationMs: Long = 60L,
     /** |dx| must be at least this many times |dy|. */
-    val swipeHorizontalRatio: Float = 1.8f,
+    val swipeHorizontalRatio: Float = 1.5f,
     val swipeCooldownMs: Long = 700L,
     /** After a swipe, the opposite direction is blocked this long (the hand travelling back). */
     val swipeReturnSuppressMs: Long = 1200L,

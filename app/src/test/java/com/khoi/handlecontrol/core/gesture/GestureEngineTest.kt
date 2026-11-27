@@ -153,6 +153,22 @@ class GestureEngineTest {
     }
 
     @Test
+    fun swipe_right_after_play_pause_still_fires() {
+        // Typical use: raise the open palm (Play/Pause fires), then swipe right away.
+        hold(Pose.OPEN_PALM, 700, cx = 0.2f)
+        move(Pose.OPEN_PALM, 0.2f, 0.8f, 300)
+        assertEquals(listOf(Gesture.OPEN_PALM, Gesture.SWIPE_RIGHT), fired)
+    }
+
+    @Test
+    fun holding_open_palm_after_swipe_does_not_trigger_play_pause() {
+        hold(Pose.OPEN_PALM, 200, cx = 0.2f)
+        move(Pose.OPEN_PALM, 0.2f, 0.8f, 300)
+        hold(Pose.OPEN_PALM, 2_000, cx = 0.8f)
+        assertEquals(listOf(Gesture.SWIPE_RIGHT), fired)
+    }
+
+    @Test
     fun swipe_works_for_small_far_away_hand() {
         // Hand ~3x smaller (further away): distances are in palm units, so a shorter move still counts.
         val small = 0.07f

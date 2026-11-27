@@ -40,7 +40,12 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
     private var trackingSinceMs = 0L
     private var palmSize = 0f
 
+    /** Blocks every gesture (set after a swipe). */
     private var cooldownUntilMs = Long.MIN_VALUE
+    /** Blocks only static poses (set after a static gesture), so a swipe right after Play/Pause still works. */
+    private var staticCooldownUntilMs = Long.MIN_VALUE
+    /** After a swipe, the pose the hand ends in is latched so stopping the hand does not fire it. */
+    private var latchPoseAfterSwipe = false
     private var suppressedSwipe: Gesture? = null
     private var suppressUntilMs = Long.MIN_VALUE
 
@@ -57,6 +62,8 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
         lastSeenMs = Long.MIN_VALUE
         palmSize = 0f
         cooldownUntilMs = Long.MIN_VALUE
+        staticCooldownUntilMs = Long.MIN_VALUE
+        latchPoseAfterSwipe = false
         suppressedSwipe = null
         suppressUntilMs = Long.MIN_VALUE
         clearCandidate()
@@ -98,6 +105,11 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
             latchedStatic = null
         }
 
+        if (latchPoseAfterSwipe && pose != null && latchedStatic == null) {
+            latchedStatic = pose
+            latchedLastSeenMs = t
+        }
+
         if (t < cooldownUntilMs) {
             state = EngineState.COOLDOWN
             // Motion during cooldown must not build up into a swipe afterwards.
@@ -106,6 +118,7 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
             clearCandidate()
             return GestureEngineSnapshot(state, pose, null, 0f, speed)
         }
+        latchPoseAfterSwipe = false
 
         detectSwipe(t, cfg)?.let { swipe ->
             return fire(swipe, t, cfg, pose, speed)
@@ -114,6 +127,12 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
         if (speed > cfg.staticMaxSpeed) {
             // The hand is moving: maybe the start of a swipe, certainly not a held pose.
             state = EngineState.ARMED
+            clearCandidate()
+            return GestureEngineSnapshot(state, pose, null, 0f, speed)
+        }
+
+        if (t < staticCooldownUntilMs) {
+            state = EngineState.COOLDOWN
             clearCandidate()
             return GestureEngineSnapshot(state, pose, null, 0f, speed)
         }
@@ -131,7 +150,8 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
         latchedStatic = null
         palmSize = 0f
         lastSeenMs = Long.MIN_VALUE
-        state = if (t < cooldownUntilMs) EngineState.COOLDOWN else EngineState.IDLE
+        latchPoseAfterSwipe = false
+        state = if (t < maxOf(cooldownUntilMs, staticCooldownUntilMs)) EngineState.COOLDOWN else EngineState.IDLE
         return GestureEngineSnapshot(state)
     }
 
@@ -175,11 +195,16 @@ class GestureEngine(config: GestureConfig = GestureConfig()) {
     ): GestureEngineSnapshot {
         state = EngineState.EXECUTE
         if (gesture.isStatic) {
-            cooldownUntilMs = t + cfg.staticCooldownMs
+            staticCooldownUntilMs = t + cfg.staticCooldownMs
         } else {
             cooldownUntilMs = t + cfg.swipeCooldownMs
             suppressedSwipe = if (gesture == Gesture.SWIPE_LEFT) Gesture.SWIPE_RIGHT else Gesture.SWIPE_LEFT
             suppressUntilMs = t + cfg.swipeReturnSuppressMs
+            // Swipes are usually done with an open palm: when the hand stops afterwards,
+            // that palm must not count as a new Play/Pause.
+            latchedStatic = pose
+            latchedLastSeenMs = t
+            latchPoseAfterSwipe = true
         }
         history.clear()
         clearCandidate()
